@@ -549,6 +549,41 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+  /* ── Content field ── */
+  .content-field-header {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px;
+  }
+  .content-tag {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    color: var(--green); background: var(--green-dim);
+    border: 1px solid var(--green-border);
+    padding: 2px 8px; border-radius: 10px; letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .content-hint {
+    font-size: 11px; color: var(--text-3); font-style: italic;
+  }
+  .content-editable {
+    border-color: var(--green-border) !important;
+    background: rgba(0,229,160,0.03) !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 13px !important;
+  }
+  .content-editable:focus { border-color: var(--green) !important; }
+
+  /* Content copy button variant */
+  .copy-btn-content {
+    border-color: var(--green-border) !important;
+    background: rgba(0,229,160,0.04) !important;
+  }
+  .copy-btn-content:hover {
+    border-color: var(--green) !important;
+    background: var(--green-dim) !important;
+  }
+  .copy-btn-content .copy-btn-icon { border-color: var(--green-border); color: var(--green); }
+  .copy-btn-content .copy-btn-label { color: var(--green); }
+  .copy-btn-content .copy-btn-sublabel { color: rgba(0,229,160,0.5); }
+
   /* ── No signup line ── */
   .no-signup {
     text-align: center; margin-top: 10px;
@@ -756,6 +791,14 @@
           </div>
 
           <div class="field-group">
+            <div class="content-field-header">
+              <span class="field-label" style="margin-bottom:0;">Content <span class="content-tag">Post-purchase</span></span>
+              <span class="content-hint">Shown to buyers after purchase — keep it simple</span>
+            </div>
+            <textarea class="field-editable content-editable" id="contentField" rows="5"></textarea>
+          </div>
+
+          <div class="field-group">
             <span class="field-label">Tagline</span>
             <input type="text" class="field-editable" id="catchcopyField" oninput="updateThumb()">
           </div>
@@ -824,6 +867,19 @@
               <div>
                 <div class="copy-btn-label">Copy Price</div>
                 <div class="copy-btn-sublabel">USD amount</div>
+              </div>
+            </div>
+            <span class="copy-indicator">Copy</span>
+          </button>
+
+          <div class="export-divider"></div>
+
+          <button class="copy-btn copy-btn-content" onclick="copyField('content')" id="copyContent">
+            <div class="copy-btn-left">
+              <div class="copy-btn-icon">📬</div>
+              <div>
+                <div class="copy-btn-label">Copy Content</div>
+                <div class="copy-btn-sublabel">Post-purchase instructions</div>
               </div>
             </div>
             <span class="copy-indicator">Copy</span>
@@ -941,6 +997,16 @@
       "ZeroToLive — Launch Any Digital Product in Under 90 Seconds"
     ],
     catchcopy: "Stop writing. Start selling.",
+    content: `Access your product:
+
+[Paste your product URL here]
+
+How to use:
+1. Open the link above
+2. Follow the on-screen instructions
+3. Done — you're in
+
+Questions? Reply to your Gumroad receipt email.`,
     description: `You built the product. Now the hard part begins — the blank sales page.
 
 Most indie hackers spend more time writing product descriptions than actually shipping. LaunchKit Pro fixes that.
@@ -997,10 +1063,11 @@ Every hour you spend on your product page is an hour you're not building. Launch
     selectedTitleIdx = 0;
     buildTitleOptions();
     document.getElementById('descField').value = mockData.description;
+    document.getElementById('contentField').value = mockData.content;
     document.getElementById('catchcopyField').value = mockData.catchcopy;
     updateThumb();
 
-    ['copyTitle','copyDesc','copyCatch','copyPrice'].forEach(id => {
+    ['copyTitle','copyDesc','copyCatch','copyPrice','copyContent'].forEach(id => {
       const el = document.getElementById(id);
       el.classList.remove('copied');
       el.querySelector('.copy-indicator').textContent = 'Copy';
@@ -1042,7 +1109,8 @@ Every hour you spend on your product page is an hour you're not building. Launch
       title:       { val: () => generatedTitles[selectedTitleIdx] || '', id: 'copyTitle' },
       description: { val: () => document.getElementById('descField').value, id: 'copyDesc' },
       catchcopy:   { val: () => document.getElementById('catchcopyField').value, id: 'copyCatch' },
-      price:       { val: () => document.getElementById('priceInput').value, id: 'copyPrice' }
+      price:       { val: () => document.getElementById('priceInput').value, id: 'copyPrice' },
+      content:     { val: () => document.getElementById('contentField').value, id: 'copyContent' },
     };
     const item = map[type];
     const text = item.val(); if (!text) return;
@@ -1126,11 +1194,27 @@ Every hour you spend on your product page is an hour you're not building. Launch
     ctx.fillText('⚡ Made with Launchly', cx, H - 22);
 
     const link = document.createElement('a');
-    link.download = isSquare ? 'thumbnail-square.png' : 'cover-wide.png';
+    link.download = buildFilename(isSquare ? 'thumbnail' : 'cover');
     link.href = canvas.toDataURL('image/png');
     link.click();
 
     showToast(isSquare ? 'Square thumbnail downloaded ↓' : 'Wide cover downloaded ↓');
+  }
+
+  /* ── Filename generator ── */
+  function buildFilename(suffix) {
+    const title = generatedTitles[selectedTitleIdx] || 'product';
+    const slug = title
+      .toLowerCase()
+      .replace(/[—–]/g, '-')          // em/en dash → hyphen
+      .replace(/[^\w\s-]/g, '')        // strip symbols
+      .trim()
+      .replace(/[\s_]+/g, '-')         // spaces → hyphens
+      .replace(/-+/g, '-')             // collapse consecutive hyphens
+      .replace(/^-|-$/g, '')           // trim leading/trailing
+      .slice(0, 60);                   // max 60 chars
+    const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    return `${slug}-${suffix}-${date}.png`;
   }
 
   /* ── Toast ── */
@@ -1154,7 +1238,8 @@ Every hour you spend on your product page is an hour you're not building. Launch
     document.getElementById('progressSteps').classList.remove('visible');
     document.getElementById('urlInput').value = '';
     document.getElementById('priceInput').value = '9';
-    document.getElementById('generateBtn').innerHTML = '<span>✦</span> Generate My Product Page <span class="btn-sub">~30 sec</span>';
+    document.getElementById('contentField').value = '';
+    document.getElementById('generateBtn').innerHTML = '<span>✦</span> Generate My Product Page <span class="btn-sub">No signup · ~30 sec</span>';
     setProgress(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
