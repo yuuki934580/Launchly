@@ -831,12 +831,23 @@
 
           <div class="export-divider"></div>
 
-          <button class="dl-btn" onclick="downloadImage()">
+          <button class="dl-btn" onclick="downloadImage('square')">
             <div class="copy-btn-left">
               <div class="copy-btn-icon">🖼</div>
               <div>
                 <div class="copy-btn-label">Download Thumbnail</div>
-                <div class="copy-btn-sublabel">1200 × 630 PNG</div>
+                <div class="copy-btn-sublabel">Square · 1000 × 1000 PNG</div>
+              </div>
+            </div>
+            <span class="copy-indicator" style="color:var(--text-3);">↓</span>
+          </button>
+
+          <button class="dl-btn" onclick="downloadImage('wide')">
+            <div class="copy-btn-left">
+              <div class="copy-btn-icon">🖼</div>
+              <div>
+                <div class="copy-btn-label">Download Cover</div>
+                <div class="copy-btn-sublabel">Wide · 1280 × 720 PNG</div>
               </div>
             </div>
             <span class="copy-indicator" style="color:var(--text-3);">↓</span>
@@ -1049,59 +1060,77 @@ Every hour you spend on your product page is an hour you're not building. Launch
   }
 
   /* ── Download image ── */
-  function downloadImage() {
+  function downloadImage(format) {
+    const isSquare = format === 'square';
+    const W = isSquare ? 1000 : 1280;
+    const H = isSquare ? 1000 : 720;
+
     const canvas = document.createElement('canvas');
-    canvas.width = 1200; canvas.height = 630;
+    canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    const bg = ctx.createLinearGradient(0, 0, 1200, 630);
+    // BG gradient
+    const bg = ctx.createLinearGradient(0, 0, W, H);
     bg.addColorStop(0, '#1e1030'); bg.addColorStop(1, '#0f1a2e');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, 1200, 630);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-    const g1 = ctx.createRadialGradient(360, 252, 0, 360, 252, 520);
+    // Glow 1
+    const g1 = ctx.createRadialGradient(W*0.3, H*0.4, 0, W*0.3, H*0.4, W*0.45);
     g1.addColorStop(0, 'rgba(124,58,255,0.55)'); g1.addColorStop(1, 'rgba(124,58,255,0)');
-    ctx.fillStyle = g1; ctx.fillRect(0, 0, 1200, 630);
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
-    const g2 = ctx.createRadialGradient(920, 420, 0, 920, 420, 380);
+    // Glow 2
+    const g2 = ctx.createRadialGradient(W*0.77, H*0.67, 0, W*0.77, H*0.67, W*0.32);
     g2.addColorStop(0, 'rgba(0,229,160,0.32)'); g2.addColorStop(1, 'rgba(0,229,160,0)');
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, 1200, 630);
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
 
-    // Subtle grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < 1200; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,630); ctx.stroke(); }
-    for (let y = 0; y < 630; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(1200,y); ctx.stroke(); }
+    // Grid texture
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+    const grid = isSquare ? 50 : 60;
+    for (let x = 0; x < W; x += grid) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y < H; y += grid) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
 
+    const cx = W / 2;
+    const midY = H / 2;
+
+    // Tagline
     const catchcopy = (document.getElementById('catchcopyField').value || '').toUpperCase();
+    const tagSize = isSquare ? 22 : 22;
     ctx.fillStyle = 'rgba(160,107,255,0.9)';
-    ctx.font = 'bold 24px Arial, sans-serif';
+    ctx.font = `bold ${tagSize}px Arial, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(catchcopy, 600, 244);
+    ctx.fillText(catchcopy, cx, midY - (isSquare ? 80 : 60));
 
+    // Title — word wrap
     const title = generatedTitles[selectedTitleIdx] || 'My Product';
+    const titleSize = isSquare ? 58 : 54;
     ctx.fillStyle = '#f0eeff';
-    ctx.font = 'bold 60px Arial, sans-serif';
+    ctx.font = `bold ${titleSize}px Arial, sans-serif`;
+    const maxW = W * 0.84;
     const words = title.split(' ');
     const lines = []; let line = '';
     for (const word of words) {
       const test = line + (line ? ' ' : '') + word;
-      if (ctx.measureText(test).width > 1020 && line) { lines.push(line); line = word; }
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
       else { line = test; }
     }
     if (line) lines.push(line);
-    const startY = 330 - ((lines.length - 1) * 36);
-    lines.forEach((l, i) => ctx.fillText(l, 600, startY + i * 78));
+    const lineH = titleSize * 1.28;
+    const blockH = lines.length * lineH;
+    const startY = midY - blockH / 2 + lineH * 0.5 + (isSquare ? 20 : 16);
+    lines.forEach((l, i) => ctx.fillText(l, cx, startY + i * lineH));
 
+    // Watermark
     ctx.fillStyle = 'rgba(240,238,255,0.28)';
-    ctx.font = 'bold 19px Arial, sans-serif';
-    ctx.fillText('⚡ Made with Launchly', 600, 596);
+    ctx.font = `bold 17px Arial, sans-serif`;
+    ctx.fillText('⚡ Made with Launchly', cx, H - 22);
 
     const link = document.createElement('a');
-    link.download = 'thumbnail.png';
+    link.download = isSquare ? 'thumbnail-square.png' : 'cover-wide.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
 
-    showToast('Thumbnail downloaded ↓');
+    showToast(isSquare ? 'Square thumbnail downloaded ↓' : 'Wide cover downloaded ↓');
   }
 
   /* ── Toast ── */
